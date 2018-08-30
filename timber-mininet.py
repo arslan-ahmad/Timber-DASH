@@ -6,7 +6,7 @@
 # of the impact of the frequency on the QoE
 # input argument for the trace file is required NumberOfRun_FrequencyInSec
 from os import environ
-from mininet.node import CPULimitedHost
+from mininet.node import CPULimitedHost, OVSKernelSwitch
 from mininet.topo import Topo
 from mininet.link import TCLink
 from mininet.cli import CLI
@@ -17,15 +17,14 @@ from mininet.log import lg, info
 from mininet.topolib import TreeNet
 from mininet.node import RemoteController
 from mininet.term import makeTerms
-from mininet.term import makeTerm
 import os
-import sys, getopt, datetime
+import sys, getopt, datetime, time
 import subprocess
 import pexpect
 from time import sleep
 REMOTE_CONTROLLER_IP = "127.0.0.1"
 MEDIA_SERVER_IP = "192.168.56.101"
-#RUN_NUMBER = "1_2s"
+"""give the input of the frequency"""
 RUN_NUMBER = sys.argv[1]
 TODAY=str(datetime.date.today())
 
@@ -65,14 +64,14 @@ def setHosts(net):
 def network_monitor():
     os.chdir("..")
     os.chdir("Timber-DASH/network_monitor_trace")
-    trace_file="sudo tcpdump -A -i s2-eth1 -w "+RUN_NUMBER+TODAY+"-test-wire.pcap &"
+    trace_file="sudo tcpdump -A -i s2-eth1 -w "+RUN_NUMBER+TODAY+str(time.time())+".pcap &"
+    #trace_file=trace_file1.split()
     os.system(trace_file)
-
+    #subprocess.Popen(trace_file.split())
 def run_dashclient(net):
     h1= net.get('h1'); h2= net.get('h2');
     #running DASH client in the h1 terminal
     network_monitor()
-    print ("running DASH client in the h1")
     h1.cmd('cd')
     h1.cmd('cd AStream/dist/client/')
     h2.cmd('cd')
@@ -83,16 +82,11 @@ def run_dashclient(net):
     web_traffic="sudo wget -bqc --tries=0 --read-timeout=5 http://"+MEDIA_SERVER_IP+"/bbb.zip"
     #web_traffic= "iperf -c "+MEDIA_SERVER_IP+" -u -b 1M -t 60 &"
     #TODO check if better to use sendCmd or cmd for automation
-
-    try:
-        web=h2.sendCmd(web_traffic)
+    web=h2.sendCmd(web_traffic)
         #h1.sendCmd(web_traffic)
         #print (web)
-        client = h1.cmd(start_client)
-        print (client)
-    except:
-        print ("Opss! DASH client is not running")
-
+    client = h1.cmd(start_client)
+    print ("running DASH client in the h1")
 
     #m= makeTerm(h1,cmd='ifconfig')
     # s3.cmd('ovs-vsctl set Bridge s3 protocols=OpenFlow13')
@@ -111,11 +105,19 @@ def startController():
     # monitor = pexpect.spawn(
     #      'xterm -geometry 100x24+0+0 -e sudo tcpdump -A -i s2-eth1 -w test-wire.pcap')
     # return monitor
+def controllerapp(net):
+    c = net.get('c0')
+    c.cmd('cd')
+    c.cmd('cd Timber-DASH')
+    controllerapp= 'sudo python controllerapp_slicingqoe.py '+RUN_NUMBER+" > app.txt &"
+    c.cmd(controllerapp)
+    print ("controller app is running")
 
 def setController(net):
     sleep(5)
     subprocess.call('curl -X PUT -d \'\"tcp:127.0.0.1:6632\"\' http://localhost:8080/v1.0/conf/switches/0000000000000001/ovsdb_addr',shell=True)
     sleep(2)
+    subprocess.call('curl -X PUT -d \'\"tcp:127.0.0.1:6632\"\' http://localhost:8080/v1.0/conf/switches/0000000000000002/ovsdb_addr',shell=True)
      #execute setting of Queue
     #subprocess.call('curl -X POST -d \'{\"port_name\": \"s1-eth1\", \"type\": \"linux-htb\", \"max_rate\": \"5000000\", \"queues\": [{\"max_rate\": \"500000\"}, {\"min_rate\": \"3000000\"}]}\' http://localhost:8080/qos/queue/0000000000000001',shell=True)
     #3 QoS Setting to install flow entry
@@ -129,7 +131,7 @@ if __name__ == '__main__':
     sleep(1)
     topo = SingleLoopTopo()
     net = Mininet(topo=topo,
-                  controller=None, link=TCLink,
+                  controller=None, link=TCLink, switch=OVSKernelSwitch,
                   autoStaticArp=True)
     net.addController("c0",
                       controller=RemoteController,
@@ -139,11 +141,16 @@ if __name__ == '__main__':
     net.start()
     setHosts(net)
     setController(net)
+    controllerapp(net)
+    # os.chdir('..')
+    # os.chdir('Timber-DASH')
+    # controllerapp="sudo python controllerapp_mplsqoe.py"+RUN_NUMBER
+    # os.sys(controllerapp)
     #net.startTerms()
     # network_monitor()
     run_dashclient(net)
-    # cli = CLI(net)
-    sleep(180)
+    #cli = CLI(net)
+    sleep(10)
     net.stop()
-    # ctrlr.sendcontrol('c')
-    # ctrlr.close()
+    ctrlr.sendcontrol('c')
+    ctrlr.close()
