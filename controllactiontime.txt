@@ -1,0 +1,25 @@
+
+ Frequency:2
+ Start time:1535585757
+ End time:1535586152
+ Delay time:-394
+ Frequency:2
+ Start time:1535587000
+ End time:1535587002
+ Delay time:-1
+ Frequency:2
+ Start time:1535589435
+ End time:1535589437
+ Delay time:-2
+ Frequency:2
+ Start time:1535589963
+ End time:1535589965
+ Delay time:-2
+ Frequency:2
+ Start time:1535591182
+ End time:1535591183
+ Delay time:0
+ Frequency:2
+ Start time:1535591247
+ End time:1535591399
+ Delay time:-151
